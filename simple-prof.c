@@ -86,24 +86,24 @@ p_stats prof_get_stats(p_data data) {
     p_stats stats;
     stats.num_trials = data.num_trials;
 
-    long first_delta = timespec_delta_in_microseconds(
+    long delta = timespec_delta_in_microseconds(
             data.end_times[0],
             data.start_times[0]);
-    stats.min = first_delta;
-    stats.max = first_delta;
-    long long sum = first_delta;
+
+    stats.min = delta;
+    stats.max = delta;
+    stats.avg = delta / (double) data.num_trials;
 
     int i;
     for (i=1; i<data.current_trial_idx; i++) {
-        long delta = timespec_delta_in_microseconds(
+        delta = timespec_delta_in_microseconds(
                 data.end_times[i],
                 data.start_times[i]);
 
         if (delta < stats.min) { stats.min = delta; }
         if (delta > stats.max) { stats.max = delta; }
-        sum += delta;
+        stats.avg += delta / (double) data.num_trials;
     }
-    stats.avg = sum / (double) data.num_trials;
 
     return stats;
 }
@@ -132,7 +132,7 @@ void function_b() {
 int main() {
     // Example usage of the prof_ routines...
 
-    int num_trials = 10000;
+    int num_trials = 1000;
 
     // Create a p_data for each thing you want to time. 
     // Timing data will be saved to these structures.
