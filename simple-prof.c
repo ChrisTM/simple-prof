@@ -1,7 +1,13 @@
-// simple-prof is for students learning to write performant functions in C.
+// What is simple-prof?
+// ====================
+// simple-prof is for students learning to write performant C routines. 
+// It makes it simple to record the execution times of many trials of a routine
+// and report simple stats on those measurements (min, avg, stdev).
 //
+// Using simple-prof
+// =================
 // Needs to be linked with RT; use -lrt.
-//
+// 
 // Typical usage involves creating a structure to store timing data for each
 // trial. Then, for each trial call the stopwatch-like start and stop functions
 // around your desired function. Finally, call the function to calculate simple
@@ -16,39 +22,36 @@
 #include <stdio.h>
 
 typedef struct p_data {
-    int num_trials;
-    // used to determine which index to save timespecs into
+    int max_trials; // the number of trials that can be recorded
     int next_idx; // next available index for writing into deltas
-    struct timespec start_time;
+    struct timespec start_time; // updated on each prof_trial_start
     long *deltas;
 } p_data;
 
 typedef struct p_stats {
-    // units are in terms of nanoseconds
     int num_trials;
     long min;
     long max;
     double avg;
-
     double stdev;
 } p_stats;
 
 p_data prof_init_data(int);
 void prof_start_trial(p_data *);
-void prof_end_trial(p_data *);
+void prof_stop_trial(p_data *);
 p_stats prof_get_stats(p_data);
 long timespec_delta_in_microseconds(struct timespec, struct timespec);
 
 
-p_data prof_init_data(int num_trials) {
+p_data prof_init_data(int max_trials) {
     p_data data;
-    data.num_trials = num_trials;
+    data.max_trials = max_trials;
     data.next_idx = 0;
-    data.deltas = malloc(sizeof(long) * num_trials); // in microseconds
+    data.deltas = malloc(sizeof(long) * max_trials); // in microseconds
 
     if (data.deltas == NULL) {
         fprintf(stderr, "Could not allocate memory for a `p_data` with %d many trials.", 
-                num_trials);
+                max_trials);
         exit(1);
     }
 
@@ -56,7 +59,7 @@ p_data prof_init_data(int num_trials) {
 }
 
 void prof_start_trial(p_data *data) {
-    if (data->next_idx >= data->num_trials) {
+    if (data->next_idx >= data->max_trials) {
         fprintf(stderr, "The p_data structure ran out of space for measurements.\n");
         exit(1);
     }
@@ -66,11 +69,11 @@ void prof_start_trial(p_data *data) {
     clock_gettime(CLOCK_MONOTONIC, &data->start_time);
 }
 
-void prof_end_trial(p_data *data) {
-    struct timespec end_time;
-    clock_gettime(CLOCK_MONOTONIC, &end_time);
+void prof_stop_trial(p_data *data) {
+    struct timespec stop_time;
+    clock_gettime(CLOCK_MONOTONIC, &stop_time);
     data->deltas[data->next_idx] = timespec_delta_in_microseconds(
-            end_time, data->start_time);
+            stop_time, data->start_time);
     data->next_idx++;
 }
 
@@ -155,11 +158,11 @@ int main() {
     for (trial_num = 0; trial_num < num_trials; trial_num++) {
         prof_start_trial(&data_a);
         function_a();
-        prof_end_trial(&data_a);
+        prof_stop_trial(&data_a);
 
         prof_start_trial(&data_b);
         function_b();
-        prof_end_trial(&data_b);
+        prof_stop_trial(&data_b);
     }
 
     // Calculate simple stats from the recorded trial timings.
