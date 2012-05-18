@@ -12,6 +12,7 @@
 
 #include <time.h> // for clock_gettime and the timespec struct
 #include <stdlib.h> // for malloc
+#include <math.h> // for sqrt
 #include <stdio.h>
 
 typedef struct p_data {
@@ -71,6 +72,15 @@ void prof_end_trial(p_data *data) {
     data->current_trial_idx++;
 }
 
+// Our timer is in nanoseconds (10^-9 s). Only ~4.2 seconds worth of
+// nanoseconds can fit in a long. This is too short for representing run-times.
+// To work around this, we can either store runtimes...
+//   1. with nanosecond precision in a long long (plenty of time fits) or, 
+//   2. with microsecond (10^-6 s) precision in a long (~1.2 hours fits), 
+//
+// We somewhat arbitrarily use option 2, partly because we think microsecond
+// resolution will be more convienent than nanosecond resolution for typical
+// uses of this profiler.
 long timespec_delta_in_microseconds(struct timespec time_a, struct timespec time_b) {
     long microseconds = (time_a.tv_sec - time_b.tv_sec) * 1000000; // 10^6µs/1s
     microseconds += (time_a.tv_nsec - time_b.tv_nsec) / 1000.0; // 1µs/10^3ns
@@ -78,13 +88,10 @@ long timespec_delta_in_microseconds(struct timespec time_a, struct timespec time
 }
 
 p_stats prof_get_stats(p_data data) {
-    // Our timer is in nanoseconds (10^-9 s). Only ~4.2 seconds worth of
-    // nanoseconds can fit in a long. This is too short for representing
-    // run-times. We could store the nanoseconds as a long long, or instead use
-    // microsecond (10^-6 s) precision with a long. A long can represent up to
-    // ~1.2 hours in nanosecond resolution.
     p_stats stats;
-    stats.num_trials = data.num_trials;
+    // since the user may not have recorded as many trials as the p_data can
+    // hold, we look at the current_trial_idx value.
+    stats.num_trials = data.current_trial_idx;
 
     long delta = timespec_delta_in_microseconds(
             data.end_times[0],
@@ -92,27 +99,38 @@ p_stats prof_get_stats(p_data data) {
 
     stats.min = delta;
     stats.max = delta;
-    stats.avg = delta / (double) data.num_trials;
+    stats.avg = delta / (double) stats.num_trials;
 
     int i;
-    for (i=1; i<data.current_trial_idx; i++) {
+    for (i = 1; i < stats.num_trials; i++) {
         delta = timespec_delta_in_microseconds(
                 data.end_times[i],
                 data.start_times[i]);
 
         if (delta < stats.min) { stats.min = delta; }
         if (delta > stats.max) { stats.max = delta; }
-        stats.avg += delta / (double) data.num_trials;
+        stats.avg += delta / (double) stats.num_trials;
     }
+
+    // find sum of squares
+    double ss = 0;
+    for (i = 0; i < stats.num_trials; i++) {
+        delta = timespec_delta_in_microseconds(
+                data.end_times[i],
+                data.start_times[i]);
+        ss += (delta - stats.avg) * (delta - stats.avg);
+    }
+    stats.stdev = sqrt(ss / stats.num_trials);
 
     return stats;
 }
 
 void prof_print_stats(p_stats stats) {
-    printf("N:   %d\n", stats.num_trials);
-    printf("Min: %ld µs\n", stats.min);
-    printf("Avg: %lf µs\n", stats.avg);
-    printf("Max: %ld µs\n", stats.max);
+    printf("    N: %d\n", stats.num_trials);
+    printf("  Avg: %lf µs\n", stats.avg);
+    printf("StDev: %lf\n", stats.stdev);
+    printf("  Min: %ld µs\n", stats.min);
+    printf("  Max: %ld µs\n", stats.max);
 }
 
 
@@ -120,18 +138,17 @@ void prof_print_stats(p_stats stats) {
 void function_a() {
     int i;
     int sum = 0;
-    for (i=0; i<1000; i++) { sum += i; }
+    for (i = 0; i < 1000; i++) { sum += i; }
 }
 
 void function_b() {
     int i;
     double prod = 1;
-    for (i=0; i<1000; i++) { prod *= i; }
+    for (i = 0; i < 1000; i++) { prod *= i; }
 }
 
+// Example usage of the prof_... routines.
 int main() {
-    // Example usage of the prof_ routines...
-
     int num_trials = 1000;
 
     // Create a p_data for each thing you want to time. 
@@ -151,11 +168,11 @@ int main() {
         prof_end_trial(&data_b);
     }
 
-    // Calculate some simple stats from the recorded trial timings.
+    // Calculate simple stats from the recorded trial timings.
     p_stats stats_a = prof_get_stats(data_a);
     p_stats stats_b = prof_get_stats(data_b);
 
-    // Print some results!
+    // Print the results!
     printf("function_a's results:\n");
     prof_print_stats(stats_a);
 
