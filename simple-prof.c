@@ -18,9 +18,9 @@
 typedef struct p_data {
     int num_trials;
     // used to determine which index to save timespecs into
-    int current_trial_idx;
-    struct timespec *start_times;
-    struct timespec *end_times;
+    int next_idx; // next available index for writing into deltas
+    struct timespec start_time;
+    long *deltas;
 } p_data;
 
 typedef struct p_stats {
@@ -43,12 +43,11 @@ long timespec_delta_in_microseconds(struct timespec, struct timespec);
 p_data prof_init_data(int num_trials) {
     p_data data;
     data.num_trials = num_trials;
-    data.current_trial_idx = 0;
-    data.start_times = malloc(sizeof(struct timespec) * num_trials);
-    data.end_times = malloc(sizeof(struct timespec) * num_trials);
+    data.next_idx = 0;
+    data.deltas = malloc(sizeof(long) * num_trials); // in microseconds
 
-    if (data.start_times == NULL || data.end_times == NULL) {
-        fprintf(stderr, "Could not allocate memory for a `p_data` of %d many trials.", 
+    if (data.deltas == NULL) {
+        fprintf(stderr, "Could not allocate memory for a `p_data` with %d many trials.", 
                 num_trials);
         exit(1);
     }
@@ -57,26 +56,29 @@ p_data prof_init_data(int num_trials) {
 }
 
 void prof_start_trial(p_data *data) {
-    if (data->current_trial_idx >= data->num_trials) {
+    if (data->next_idx >= data->num_trials) {
         fprintf(stderr, "The p_data structure ran out of space for measurements.\n");
         exit(1);
     }
 
     // keep this line at the bottom of the function so that it's most
     // temporally local to the work that comes after this function returns.
-    clock_gettime(CLOCK_MONOTONIC, &data->start_times[data->current_trial_idx]);
+    clock_gettime(CLOCK_MONOTONIC, &data->start_time);
 }
 
 void prof_end_trial(p_data *data) {
-    clock_gettime(CLOCK_MONOTONIC, &data->end_times[data->current_trial_idx]);
-    data->current_trial_idx++;
+    struct timespec end_time;
+    clock_gettime(CLOCK_MONOTONIC, &end_time);
+    data->deltas[data->next_idx] = timespec_delta_in_microseconds(
+            end_time, data->start_time);
+    data->next_idx++;
 }
 
 // Our timer is in nanoseconds (10^-9 s). Only ~4.2 seconds worth of
 // nanoseconds can fit in a long. This is too short for representing run-times.
 // To work around this, we can either store runtimes...
-//   1. with nanosecond precision in a long long (plenty of time fits) or, 
-//   2. with microsecond (10^-6 s) precision in a long (~1.2 hours fits), 
+//   1. with nanosecond precision in a long long (plenty of time fits) or,
+//   2. with microsecond (10^-6 s) precision in a long (~1.2 hours fits),
 //
 // We somewhat arbitrarily use option 2, partly because we think microsecond
 // resolution will be more convienent than nanosecond resolution for typical
@@ -90,35 +92,25 @@ long timespec_delta_in_microseconds(struct timespec time_a, struct timespec time
 p_stats prof_get_stats(p_data data) {
     p_stats stats;
     // since the user may not have recorded as many trials as the p_data can
-    // hold, we look at the current_trial_idx value.
-    stats.num_trials = data.current_trial_idx;
+    // hold, we look at the next_idx value to see how many deltas were
+    // actually recorded.
+    stats.num_trials = data.next_idx;
 
-    long delta = timespec_delta_in_microseconds(
-            data.end_times[0],
-            data.start_times[0]);
-
-    stats.min = delta;
-    stats.max = delta;
-    stats.avg = delta / (double) stats.num_trials;
+    stats.min = data.deltas[0];
+    stats.max = data.deltas[0];
+    stats.avg = data.deltas[0] / (double) stats.num_trials;
 
     int i;
     for (i = 1; i < stats.num_trials; i++) {
-        delta = timespec_delta_in_microseconds(
-                data.end_times[i],
-                data.start_times[i]);
-
-        if (delta < stats.min) { stats.min = delta; }
-        if (delta > stats.max) { stats.max = delta; }
-        stats.avg += delta / (double) stats.num_trials;
+        if (data.deltas[i] < stats.min) { stats.min = data.deltas[i]; }
+        if (data.deltas[i] > stats.max) { stats.max = data.deltas[i]; }
+        stats.avg += data.deltas[i] / (double) stats.num_trials;
     }
 
     // find sum of squares
     double ss = 0;
     for (i = 0; i < stats.num_trials; i++) {
-        delta = timespec_delta_in_microseconds(
-                data.end_times[i],
-                data.start_times[i]);
-        ss += (delta - stats.avg) * (delta - stats.avg);
+        ss += (data.deltas[i] - stats.avg) * (data.deltas[i] - stats.avg);
     }
     stats.stdev = sqrt(ss / stats.num_trials);
 
@@ -135,6 +127,9 @@ void prof_print_stats(p_stats stats) {
 
 
 
+// Example usage of the prof_... routines is below.
+// ================================================
+
 void function_a() {
     int i;
     int sum = 0;
@@ -147,7 +142,6 @@ void function_b() {
     for (i = 0; i < 1000; i++) { prod *= i; }
 }
 
-// Example usage of the prof_... routines.
 int main() {
     int num_trials = 1000;
 
