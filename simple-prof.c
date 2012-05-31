@@ -113,8 +113,24 @@ p_stats prof_get_stats(p_data data) {
 
 void prof_print_stats(p_stats stats) {
     printf("    N: %d\n", stats.num_trials);
-    printf("  Avg: %lf µs\n", stats.avg);
-    printf("StDev: %lf\n", stats.stdev);
     printf("  Min: %ld µs\n", stats.min);
     printf("  Max: %ld µs\n", stats.max);
+    printf("  Avg: %lf µs\n", stats.avg);
+    printf("StDev: %lf\n", stats.stdev);
+}
+
+/* For creating output suitable for easily importing into a spreadsheet, use
+ * these csv routines to generate comma-separated output. */
+
+void prof_print_csv_header() {
+    printf("N,Min(µs),Max(µs),Avg(µs),StDev\n");
+}
+
+void prof_print_csv_stats(p_stats stats) {
+    printf("%d,%ld,%ld,%lf,%lf\n",
+            stats.num_trials,
+            stats.min,
+            stats.max,
+            stats.avg,
+            stats.stdev);
 }
