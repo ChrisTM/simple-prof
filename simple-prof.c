@@ -1,47 +1,38 @@
 // What is simple-prof?
 // ====================
-// simple-prof is for students learning to write performant C routines. 
+// simple-prof is for students learning to write performant C routines.
 // It makes it simple to record the execution times of many trials of a routine
 // and report simple stats on those measurements (min, avg, stdev).
 //
-// Using simple-prof
-// =================
-// Needs to be linked with RT; use -lrt.
+// How do I use simple-prof?
+// =========================
+// Include simple-prof with `#include "simple-prof.h"`, compile with:
+//     gcc -lrt -lm simple-prof.c your-program.c
 // 
-// Typical usage involves creating a structure to store timing data for each
-// trial. Then, for each trial call the stopwatch-like start and stop functions
-// around your desired function. Finally, call the function to calculate simple
-// timing states from the data recorded in the timing data structure.
+// Typical usage:
+//   1. create a structure to store runs of timing data:
+//
+//      p_data func_a_data = prof_init_data(NUM_TRIALS)
+//
+//   2. for each trial, call the start and stop functions around your
+//   code-block:
+//
+//      prof_start_trial(&fn_data);
+//      fn();
+//      prof_stop_trial(&fn_data);
+//
+//   3. calculate some stats from the collected data:
+//
+//      p_stats fn_stats = prof_get_stats(fn_data);
+//
+//   4. optionally use this convienence function to print the stats:
+//
+//      prof_print_stats(fn_stats); 
 //
 // simple-prof uses a high resolution timer that should be unaffected by
 // changes to the system clock due to things like NTP jumps and skews.
 
-#include <time.h> // for clock_gettime and the timespec struct
-#include <stdlib.h> // for malloc
-#include <math.h> // for sqrt
-#include <stdio.h>
-
-typedef struct p_data {
-    int max_trials; // the number of trials that can be recorded
-    int next_idx; // next available index for writing into deltas
-    struct timespec start_time; // updated on each prof_trial_start
-    long *deltas;
-} p_data;
-
-typedef struct p_stats {
-    int num_trials;
-    long min;
-    long max;
-    double avg;
-    double stdev;
-} p_stats;
-
-p_data prof_init_data(int);
-void prof_start_trial(p_data *);
-void prof_stop_trial(p_data *);
-p_stats prof_get_stats(p_data);
-long timespec_delta_in_microseconds(struct timespec, struct timespec);
-
+#include "simple-prof.h"
 
 p_data prof_init_data(int max_trials) {
     p_data data;
@@ -127,57 +118,3 @@ void prof_print_stats(p_stats stats) {
     printf("  Min: %ld µs\n", stats.min);
     printf("  Max: %ld µs\n", stats.max);
 }
-
-
-
-// Example usage of the prof_... routines is below.
-// ================================================
-
-void function_a() {
-    int i;
-    int sum = 0;
-    for (i = 0; i < 1000; i++) { sum += i; }
-}
-
-void function_b() {
-    int i;
-    double prod = 1;
-    for (i = 0; i < 1000; i++) { prod *= i; }
-}
-
-int main() {
-    int num_trials = 1000;
-
-    // Create a p_data for each thing you want to time. 
-    // Timing data will be saved to these structures.
-    p_data data_a = prof_init_data(num_trials);
-    p_data data_b = prof_init_data(num_trials);
-
-    // Record a number timings for each thing.
-    int trial_num;
-    for (trial_num = 0; trial_num < num_trials; trial_num++) {
-        prof_start_trial(&data_a);
-        function_a();
-        prof_stop_trial(&data_a);
-
-        prof_start_trial(&data_b);
-        function_b();
-        prof_stop_trial(&data_b);
-    }
-
-    // Calculate simple stats from the recorded trial timings.
-    p_stats stats_a = prof_get_stats(data_a);
-    p_stats stats_b = prof_get_stats(data_b);
-
-    // Print the results!
-    printf("function_a's results:\n");
-    prof_print_stats(stats_a);
-
-    printf("\nfunction_b's results:\n");
-    prof_print_stats(stats_b);
-
-    printf("\nfunction_a is %lf times faster than function_b.\n",
-            stats_b.avg / stats_a.avg);
-
-    return 0;
-};
