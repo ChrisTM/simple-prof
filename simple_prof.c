@@ -6,8 +6,8 @@
 //
 // How do I use simple-prof?
 // =========================
-// Include simple-prof with `#include "simple-prof.h"`, compile with:
-//     gcc -lrt -lm simple-prof.c your-program.c
+// Include simple-prof with `#include "simple_prof.h"`, compile with:
+//     gcc -lrt -lm simple_prof.c your-program.c
 // 
 // Typical usage:
 //   1. create a structure to store runs of timing data:
@@ -32,7 +32,7 @@
 // simple-prof uses a high resolution timer that should be unaffected by
 // changes to the system clock due to things like NTP jumps and skews.
 
-#include "simple-prof.h"
+#include "simple_prof.h"
 
 p_data prof_init_data(int max_trials) {
     p_data data;

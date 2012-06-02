@@ -3,7 +3,7 @@
  *     gcc -lrt -lm simple-prof.c example.c
  */
 
-#include "simple-prof.h"
+#include "simple_prof.h"
 
 void function_a() {
     int i;
