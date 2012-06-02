@@ -21,10 +21,12 @@ typedef struct p_stats {
     double stdev;
 } p_stats;
 
+long timespec_delta_in_microseconds(struct timespec, struct timespec);
 p_data prof_init_data(int);
 void prof_start_trial(p_data *);
 void prof_stop_trial(p_data *);
 p_stats prof_get_stats(p_data);
-long timespec_delta_in_microseconds(struct timespec, struct timespec);
+void prof_print_csv_header();
+void prof_print_csv_stats(p_stats);
 
 #endif

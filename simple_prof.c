@@ -1,37 +1,3 @@
-// What is simple-prof?
-// ====================
-// simple-prof is for students learning to write performant C routines.
-// It makes it simple to record the execution times of many trials of a routine
-// and report simple stats on those measurements (min, avg, stdev).
-//
-// How do I use simple-prof?
-// =========================
-// Include simple-prof with `#include "simple_prof.h"`, compile with:
-//     gcc -lrt -lm simple_prof.c your-program.c
-// 
-// Typical usage:
-//   1. create a structure to store runs of timing data:
-//
-//      p_data func_a_data = prof_init_data(NUM_TRIALS)
-//
-//   2. for each trial, call the start and stop functions around your
-//   code-block:
-//
-//      prof_start_trial(&fn_data);
-//      fn();
-//      prof_stop_trial(&fn_data);
-//
-//   3. calculate some stats from the collected data:
-//
-//      p_stats fn_stats = prof_get_stats(fn_data);
-//
-//   4. optionally use this convienence function to print the stats:
-//
-//      prof_print_stats(fn_stats); 
-//
-// simple-prof uses a high resolution timer that should be unaffected by
-// changes to the system clock due to things like NTP jumps and skews.
-
 #include "simple_prof.h"
 
 p_data prof_init_data(int max_trials) {
@@ -75,7 +41,7 @@ void prof_stop_trial(p_data *data) {
 //   2. with microsecond (10^-6 s) precision in a long (~1.2 hours fits),
 //
 // We somewhat arbitrarily use option 2, partly because we think microsecond
-// resolution will be more convienent than nanosecond resolution for typical
+// resolution will be more convenient than nanosecond resolution for typical
 // uses of this profiler.
 long timespec_delta_in_microseconds(struct timespec time_a, struct timespec time_b) {
     long microseconds = (time_a.tv_sec - time_b.tv_sec) * 1000000; // 10^6µs/1s
