@@ -1,37 +1,42 @@
 #include "simple_prof.h"
 
-p_data prof_init_data(int max_trials) {
+p_data prof_init_data() {
     p_data data;
-    data.max_trials = max_trials;
-    data.next_idx = 0;
-    data.deltas = malloc(sizeof(long) * max_trials); // in microseconds
-
-    if (data.deltas == NULL) {
-        fprintf(stderr, "Could not allocate memory for a `p_data` with %d many trials.", 
-                max_trials);
-        exit(1);
-    }
-
+    data.n = 0;
     return data;
 }
 
 void prof_start_trial(p_data *data) {
-    if (data->next_idx >= data->max_trials) {
-        fprintf(stderr, "The p_data structure ran out of space for measurements.\n");
-        exit(1);
-    }
-
-    // keep this line at the bottom of the function so that it's most
-    // temporally local to the work that comes after this function returns.
     clock_gettime(CLOCK_MONOTONIC, &data->start_time);
 }
 
 void prof_stop_trial(p_data *data) {
     struct timespec stop_time;
     clock_gettime(CLOCK_MONOTONIC, &stop_time);
-    data->deltas[data->next_idx] = timespec_delta_in_microseconds(
-            stop_time, data->start_time);
-    data->next_idx++;
+
+    long duration = timespec_delta_in_microseconds(
+            stop_time,
+            data->start_time);
+    data->n += 1;
+
+
+    // initialize data's values when the first datapoint is recorded
+    if (data->n == 1) {
+        data->min = duration;
+        data->max = duration;
+        data->avg = duration;
+        data->variance = 0.0;
+        data->sum_sqrs = 0.0;
+    } else {
+        // compute running mean and variance
+        double residual = duration - data->avg;
+        data->avg += residual / data->n;
+        data->sum_sqrs += residual * (duration - data->avg);
+        data->variance = data->sum_sqrs / data->n;
+
+        if (duration < data->min) { data->min = duration; }
+        if (duration > data->max) { data->max = duration; }
+    }
 }
 
 // Our timer is in nanoseconds (10^-9 s). Only ~4.2 seconds worth of
@@ -49,55 +54,27 @@ long timespec_delta_in_microseconds(struct timespec time_a, struct timespec time
     return microseconds;
 }
 
-p_stats prof_get_stats(p_data data) {
-    p_stats stats;
-    // since the user may not have recorded as many trials as the p_data can
-    // hold, we look at the next_idx value to see how many deltas were
-    // actually recorded.
-    stats.num_trials = data.next_idx;
-
-    stats.min = data.deltas[0];
-    stats.max = data.deltas[0];
-    stats.avg = data.deltas[0] / (double) stats.num_trials;
-
-    int i;
-    for (i = 1; i < stats.num_trials; i++) {
-        if (data.deltas[i] < stats.min) { stats.min = data.deltas[i]; }
-        if (data.deltas[i] > stats.max) { stats.max = data.deltas[i]; }
-        stats.avg += data.deltas[i] / (double) stats.num_trials;
-    }
-
-    // find sum of squares
-    double ss = 0;
-    for (i = 0; i < stats.num_trials; i++) {
-        ss += (data.deltas[i] - stats.avg) * (data.deltas[i] - stats.avg);
-    }
-    stats.stdev = sqrt(ss / stats.num_trials);
-
-    return stats;
-}
-
-void prof_print_stats(p_stats stats) {
-    printf("    N: %d\n", stats.num_trials);
-    printf("  Min: %4ld µs\n", stats.min);
-    printf("  Max: %4ld µs\n", stats.max);
-    printf("  Avg: %8.3lf µs\n", stats.avg);
-    printf("StDev: %8.3lf\n", stats.stdev);
+void prof_print_stats(p_data data) {
+    printf("    N: %d\n", data.n);
+    printf("  Min: %4ld µs\n", data.min);
+    printf("  Max: %4ld µs\n", data.max);
+    printf("  Avg: %8.3lf µs\n", data.avg);
+    printf("StDev: %8.3lf\n", sqrt(data.variance));
 }
 
 
 /* For creating output suitable for easily importing into a spreadsheet, use
  * these csv routines to generate comma-separated output. */
 
-void prof_print_csv_header() {
-    printf("N,Min(µs),Max(µs),Avg(µs),StDev\n");
+void prof_print_csv_stats(p_data data) {
+    printf("%d,%ld,%ld,%lf,%lf\n",
+            data.n,
+            data.min,
+            data.max,
+            data.avg,
+            sqrt(data.variance));
 }
 
-void prof_print_csv_stats(p_stats stats) {
-    printf("%d,%ld,%ld,%lf,%lf\n",
-            stats.num_trials,
-            stats.min,
-            stats.max,
-            stats.avg,
-            stats.stdev);
+void prof_print_csv_header() {
+    printf("N,Min(µs),Max(µs),Avg(µs),StDev\n");
 }

@@ -8,26 +8,23 @@
 void function_a() {
     int i;
     int sum = 0;
-    for (i = 0; i < 1000; i++) { sum += i; }
+    for (i = 0; i < 10000; i++) { sum += i; }
 }
 
 void function_b() {
     int i;
     double prod = 1;
-    for (i = 0; i < 1000; i++) { prod *= i; }
+    for (i = 0; i < 10000; i++) { prod *= i; }
 }
 
 int main() {
-    int num_trials = 1000;
-
+    int trial_num;
     // Create a p_data for each thing you want to time. 
-    // Timing data will be saved to these structures.
-    p_data data_a = prof_init_data(num_trials);
-    p_data data_b = prof_init_data(num_trials);
+    p_data data_a = prof_init_data();
+    p_data data_b = prof_init_data();
 
     // Record a number timings for each thing.
-    int trial_num;
-    for (trial_num = 0; trial_num < num_trials; trial_num++) {
+    for (trial_num = 0; trial_num < 1000; trial_num++) {
         prof_start_trial(&data_a);
         function_a();
         prof_stop_trial(&data_a);
@@ -37,19 +34,15 @@ int main() {
         prof_stop_trial(&data_b);
     }
 
-    // Calculate simple stats from the recorded trial timings.
-    p_stats stats_a = prof_get_stats(data_a);
-    p_stats stats_b = prof_get_stats(data_b);
-
     // Print the results!
     printf("function_a's results:\n");
-    prof_print_stats(stats_a);
+    prof_print_stats(data_a);
 
     printf("\nfunction_b's results:\n");
-    prof_print_stats(stats_b);
+    prof_print_stats(data_b);
 
     printf("\nfunction_a is %lf times faster than function_b.\n",
-            stats_b.avg / stats_a.avg);
+            data_b.avg / data_a.avg);
 
     return 0;
 };
