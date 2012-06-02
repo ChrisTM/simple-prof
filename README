@@ -13,7 +13,7 @@ Include simple-prof with `#include "simple_prof.h"`, compile with:
 Typical usage:
   1. create a structure for storing collected timing data:
 
-         p_data fn_data = prof_init_data()
+         prof_data fn_data = prof_init_data()
 
   2. call the start and stop functions around your code-block:
 

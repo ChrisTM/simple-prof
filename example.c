@@ -19,9 +19,9 @@ void function_b() {
 
 int main() {
     int trial_num;
-    // Create a p_data for each thing you want to time. 
-    p_data data_a = prof_init_data();
-    p_data data_b = prof_init_data();
+    // Create a prof_data for each thing you want to time. 
+    struct prof_data data_a = prof_init_data();
+    struct prof_data data_b = prof_init_data();
 
     // Record a number timings for each thing.
     for (trial_num = 0; trial_num < 1000; trial_num++) {

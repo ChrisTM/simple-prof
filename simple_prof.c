@@ -1,16 +1,16 @@
 #include "simple_prof.h"
 
-p_data prof_init_data() {
-    p_data data;
+struct prof_data prof_init_data() {
+    struct prof_data data;
     data.n = 0;
     return data;
 }
 
-void prof_start_trial(p_data *data) {
+void prof_start_trial(struct prof_data *data) {
     clock_gettime(CLOCK_MONOTONIC, &data->start_time);
 }
 
-void prof_stop_trial(p_data *data) {
+void prof_stop_trial(struct prof_data *data) {
     struct timespec stop_time;
     clock_gettime(CLOCK_MONOTONIC, &stop_time);
 
@@ -54,7 +54,7 @@ long timespec_delta_in_microseconds(struct timespec time_a, struct timespec time
     return microseconds;
 }
 
-void prof_print_stats(p_data data) {
+void prof_print_stats(struct prof_data data) {
     printf("    N: %d\n", data.n);
     printf("  Min: %4ld µs\n", data.min);
     printf("  Max: %4ld µs\n", data.max);
@@ -66,7 +66,7 @@ void prof_print_stats(p_data data) {
 /* For creating output suitable for easily importing into a spreadsheet, use
  * these csv routines to generate comma-separated output. */
 
-void prof_print_csv_stats(p_data data) {
+void prof_print_csv_stats(struct prof_data data) {
     printf("%d,%ld,%ld,%lf,%lf\n",
             data.n,
             data.min,
