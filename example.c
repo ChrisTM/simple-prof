@@ -1,6 +1,6 @@
 /* Example of using simple-prof.
  * Compile with:
- *     gcc -lrt -lm simple-prof.c example.c
+ *     gcc -lrt -lm simple_prof.c example.c
  */
 
 #include "simple_prof.h"
